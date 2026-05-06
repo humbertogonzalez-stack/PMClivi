@@ -20,8 +20,17 @@ except Exception as e:
     st.error("Faltan configurar los Secrets en Streamlit Cloud.")
     st.stop()
 
+# --- VARIABLES DE ESTADO ---
+if 'show_add_form' not in st.session_state: st.session_state.show_add_form = False
+if 'editing_task_id' not in st.session_state: st.session_state.editing_task_id = None
+if 'view' not in st.session_state: st.session_state.view = "tablero"
+
 # --- CONEXIÓN ---
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+@st.cache_resource
+def init_connection():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+supabase = init_connection()
 
 # --- LISTA DE EQUIPO ---
 EQUIPO_CLIVI = [
@@ -82,6 +91,8 @@ st.markdown("""
 # --- HEADER ---
 c_head1, c_head2, c_head3 = st.columns([1, 7, 2])
 with c_head2:
+    try: st.image("logo_clivi.png", width=120)
+    except: pass
     st.title("Centro de Mando de Marketing")
 with c_head3:
     if st.button("🏠 Tablero", use_container_width=True): st.session_state.view = "tablero"; st.rerun()
@@ -90,7 +101,7 @@ with c_head3:
 st.markdown("---")
 
 # --- VISTA: PAPELERA ---
-if st.get('view') == "papelera":
+if st.session_state.view == "papelera":  # <--- AQUÍ ESTABA EL ERROR
     st.subheader("🗑️ Papelera")
     res = supabase.table("clivi_tareas_marketing").select("*").eq("eliminada", True).execute()
     df_trash = pd.DataFrame(res.data)
@@ -123,7 +134,7 @@ with c_act3:
         st.download_button("📊 Reporte", data=csv, file_name=f"clivi_{date.today()}.csv")
 
 # --- FORMULARIO NUEVA TAREA ---
-if st.session_state.get('show_add_form'):
+if st.session_state.show_add_form:
     with st.expander("📝 Nueva Tarea", expanded=True):
         with st.form("new_task"):
             f1, f2 = st.columns(2)
@@ -146,11 +157,11 @@ if st.session_state.get('show_add_form'):
                         "prioridad": nt_p, "asignado_a": nt_as, "autor": nt_aut, 
                         "fecha_limite": str(nt_dl), "descripcion": nt_desc, "eliminada": False
                     }).execute()
-                    if "@clivi.com.mx" in nt_as: enviar_notificacion(nt_as, nt_t, nt_aut)
+                    if "@" in nt_as: enviar_notificacion(nt_as, nt_t, nt_aut)
                     st.session_state.show_add_form = False; st.cache_data.clear(); st.rerun()
 
 # --- EDITOR ---
-if st.session_state.get('editing_task_id') and not df.empty:
+if st.session_state.editing_task_id and not df.empty:
     task = df[df['id'] == st.session_state.editing_task_id].iloc[0]
     with st.form("edit"):
         st.subheader(f"✏️ Editando: {task['titulo']}")
