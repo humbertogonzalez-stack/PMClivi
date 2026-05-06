@@ -13,6 +13,15 @@ if 'show_add_form' not in st.session_state: st.session_state.show_add_form = Fal
 if 'editing_task_id' not in st.session_state: st.session_state.editing_task_id = None
 if 'view' not in st.session_state: st.session_state.view = "tablero"
 
+# --- LISTA DE EQUIPO CLIVI ---
+EQUIPO_CLIVI = [
+    "Seleccionar...",
+    "humberto.gonzalez@clivi.com.mx",
+    "betiana.correa@clivi.com.mx",
+    "carolina.rodriguez@clivi.com.mx",
+    "Otro (Escribir...)"
+]
+
 # --- DISEÑO CSS ---
 st.markdown("""
 <style>
@@ -28,10 +37,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- CREDENCIALES (Cámbialas por tus llaves reales) ---
+# --- CONEXIÓN ---
 SUPABASE_URL = "https://hsfgtjagpfmzqbwuhtqg.supabase.co"
 SUPABASE_KEY = "sb_publishable_z5UM_bMEymxiupzyTqi_eA_V4c0SZZC"
-RESEND_API_KEY = "re_UJ2rzXKi_GnJC1GbF2WmewBD4BcVCvNvb" # <--- PEGA AQUÍ TU API KEY DE RESEND
+RESEND_API_KEY = "re_TU_API_KEY_AQUÍ" # <--- PEGA AQUÍ TU API KEY DE RESEND
 
 @st.cache_resource
 def init_clients():
@@ -41,21 +50,31 @@ def init_clients():
 
 supabase = init_clients()
 
-# --- LÓGICA DE CORREO ---
+# --- LÓGICA DE NOTIFICACIÓN ---
 def enviar_notificacion(destinatario, tarea_titulo, autor_nombre):
-    if "@clivi.com.mx" in destinatario:
+    if "@" in destinatario:
         try:
             resend.Emails.send({
                 "from": "Clivi Bot <onboarding@resend.dev>",
                 "to": destinatario,
                 "subject": f"🚀 Nueva tarea: {tarea_titulo}",
-                "html": f"<p><strong>{autor_nombre}</strong> te asignó una tarea.</p><p><b>Tarea:</b> {tarea_titulo}</p>"
+                "html": f"""
+                <div style='font-family: sans-serif;'>
+                    <h3>¡Hola!</h3>
+                    <p><strong>{autor_nombre}</strong> te ha asignado una tarea en el Centro de Mando.</p>
+                    <p><b>Tarea:</b> {tarea_titulo}</p>
+                    <br>
+                    <p>Revisa el tablero para más detalles.</p>
+                </div>
+                """
             })
             return True
-        except: return False
+        except Exception as e:
+            st.error(f"Error al enviar correo: {e}")
+            return False
     return False
 
-# --- FUNCIONES DE BASE DE DATOS ---
+# --- FUNCIONES DB ---
 def get_tasks(eliminadas=False):
     return pd.DataFrame(supabase.table("clivi_tareas_marketing").select("*").eq("eliminada", eliminadas).execute().data)
 
@@ -104,7 +123,7 @@ with c_act2:
 with c_act3:
     if not df.empty:
         csv = df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📊 Descargar Reporte Excel", data=csv, file_name=f'clivi_marketing_{date.today()}.csv', mime='text/csv')
+        st.download_button("📊 Reporte Excel", data=csv, file_name=f'clivi_marketing_{date.today()}.csv', mime='text/csv')
 
 # --- FORMULARIO NUEVA TAREA ---
 if st.session_state.show_add_form:
@@ -112,22 +131,30 @@ if st.session_state.show_add_form:
         with st.form("new_task"):
             f1, f2 = st.columns(2)
             with f1:
-                nt_t = st.text_input("Título*"); nt_a = st.selectbox("Área*", ['Pagado', 'Orgánico', 'Motion', 'Diseño'])
+                nt_t = st.text_input("Título*")
+                nt_a = st.selectbox("Área*", ['Pagado', 'Orgánico', 'Motion', 'Diseño'])
                 nt_p = st.selectbox("Prioridad", ['Baja', 'Media', 'Alta', 'Urgente'], index=1)
                 nt_aut = st.text_input("Tu Nombre (Autor)*")
             with f2:
-                nt_as = st.text_input("Asignado a (Nombre o Correo @clivi.com.mx)")
-                nt_dl = st.date_input("Fecha Límite"); nt_desc = st.text_area("Descripción")
+                nt_as_select = st.selectbox("Asignar a integrante", EQUIPO_CLIVI)
+                nt_as_custom = st.text_input("Nombre/Correo (si eligió 'Otro')") if nt_as_select == "Otro (Escribir...)" else ""
+                nt_as = nt_as_custom if nt_as_select == "Otro (Escribir...)" else nt_as_select
+                
+                nt_dl = st.date_input("Fecha Límite")
+                nt_desc = st.text_area("Descripción")
             
             nb1, nb2 = st.columns([2, 8])
             if nb1.form_submit_button("Crear"):
-                if nt_t and nt_aut:
+                if nt_t and nt_aut and nt_as != "Seleccionar...":
                     supabase.table("clivi_tareas_marketing").insert({
                         "id": str(uuid.uuid4()), "titulo": nt_t, "area": nt_a, "estado": "Backlog",
                         "prioridad": nt_p, "asignado_a": nt_as, "autor": nt_aut, 
                         "fecha_limite": str(nt_dl), "descripcion": nt_desc, "eliminada": False
                     }).execute()
-                    if "@clivi.com.mx" in nt_as: enviar_notificacion(nt_as, nt_t, nt_aut)
+                    
+                    if "@clivi.com.mx" in nt_as:
+                        enviar_notificacion(nt_as, nt_t, nt_aut)
+                    
                     st.session_state.show_add_form = False; st.cache_data.clear(); st.rerun()
             if nb2.form_submit_button("Cancelar"): st.session_state.show_add_form = False; st.rerun()
 
@@ -151,7 +178,7 @@ if st.session_state.editing_task_id and not df.empty:
             update_db(task['id'], {"titulo": et, "estado": es, "prioridad": ep, "asignado_a": eas, "descripcion": ed, "notas": en})
             st.session_state.editing_task_id = None; st.rerun()
         if eb2.form_submit_button("❌ Cancelar"): st.session_state.editing_task_id = None; st.rerun()
-        if eb3.form_submit_button("🗑️ Eliminar"): update_db(task['id'], {"eliminada": True}); st.session_state.editing_task_id = None; st.rerun()
+        if eb3.form_submit_button("🗑️ Papelera"): update_db(task['id'], {"eliminada": True}); st.session_state.editing_task_id = None; st.rerun()
 
 # --- TABLERO KANBAN ---
 if not df.empty:
@@ -173,4 +200,3 @@ if not df.empty:
                 if i < 3 and b2.button("➡️", key=f"r_{t['id']}"): update_db(t['id'], {"estado": est[i+1]}); st.rerun()
                 if i == 3 and b2.button("🗑️", key=f"t_{t['id']}"): update_db(t['id'], {"eliminada": True}); st.rerun()
                 if b3.button("Detalles", key=f"d_{t['id']}", use_container_width=True): st.session_state.editing_task_id = t['id']; st.rerun()
-else: st.info("Crea una tarea para empezar.")
