@@ -9,7 +9,7 @@ st.set_page_config(page_title="Clivi: Comando de Crecimiento", layout="wide")
 
 if 'show_add_form' not in st.session_state: st.session_state.show_add_form = False
 if 'editing_task_id' not in st.session_state: st.session_state.editing_task_id = None
-if 'view' not in st.session_state: st.session_state.view = "tablero" # "tablero" o "papelera"
+if 'view' not in st.session_state: st.session_state.view = "tablero" 
 
 # --- CSS ---
 st.markdown("""
@@ -78,17 +78,30 @@ if st.session_state.view == "papelera":
                     permanent_delete(t['id']); st.rerun()
     st.stop()
 
-# --- VISTA: TABLERO (Resto del código original filtrado) ---
-c1, c2, c3 = st.columns([2, 2, 4])
+# --- VISTA: TABLERO ---
+c1, c2, c3, c4 = st.columns([1.5, 2, 2, 2])
 with c1:
     if st.button("+ Nueva Tarea", use_container_width=True, type="primary"):
         st.session_state.show_add_form = True; st.session_state.editing_task_id = None
 with c2:
-    filtro_area = st.selectbox("Filtrar Área", ['Todas', 'Pagado', 'Orgánico', 'Motion', 'Diseño'])
+    filtro_area = st.selectbox("Filtrar Área", ['Todas', 'Pagado', 'Orgánico', 'Motion', 'Diseño'], label_visibility="collapsed")
 
 df = get_tasks(eliminadas=False)
 
-# --- EDITOR (Incluye botón de eliminar que manda a papelera) ---
+# --- BOTÓN DE REPORTE ---
+with c3:
+    if not df.empty:
+        # Preparar CSV
+        csv = df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📊 Descargar Reporte (Excel)",
+            data=csv,
+            file_name=f'reporte_marketing_clivi_{date.today()}.csv',
+            mime='text/csv',
+            use_container_width=True
+        )
+
+# --- EDITOR ---
 if st.session_state.editing_task_id and not df.empty:
     task_to_edit = df[df['id'] == st.session_state.editing_task_id].iloc[0]
     with st.form("edit_form"):
@@ -98,10 +111,10 @@ if st.session_state.editing_task_id and not df.empty:
             e_titulo = st.text_input("Título", value=task_to_edit['titulo'])
             e_estado = st.selectbox("Estado", ['Backlog', 'Por Hacer', 'En Proceso', 'Terminado'], index=['Backlog', 'Por Hacer', 'En Proceso', 'Terminado'].index(task_to_edit['estado']))
             e_prioridad = st.selectbox("Prioridad", ['Baja', 'Media', 'Alta', 'Urgente'], index=['Baja', 'Media', 'Alta', 'Urgente'].index(task_to_edit.get('prioridad', 'Media')))
-        with col_e2:
             e_asignado = st.text_input("Asignado a", value=task_to_edit.get('asignado_a', ''))
+        with col_e2:
             e_desc = st.text_area("Descripción", value=task_to_edit.get('descripcion', ''))
-            e_notas = st.text_area("Notas", value=task_to_edit.get('notas', ''))
+            e_notas = st.text_area("Notas / Novedades", value=task_to_edit.get('notas', ''))
         
         eb1, eb2, eb3 = st.columns([2, 2, 6])
         if eb1.form_submit_button("💾 Guardar"):
@@ -118,13 +131,18 @@ if st.session_state.show_add_form:
             f1, f2 = st.columns(2)
             with f1:
                 nt_t = st.text_input("Título*"); nt_a = st.selectbox("Área*", ['Pagado', 'Orgánico', 'Motion', 'Diseño']); nt_p = st.selectbox("Prioridad", ['Baja', 'Media', 'Alta', 'Urgente'], index=1)
+                nt_as = st.text_input("Asignado")
             with f2:
-                nt_as = st.text_input("Asignado"); nt_dl = st.date_input("Fecha Límite"); nt_st = st.selectbox("Estado", ['Backlog', 'Por Hacer', 'En Proceso', 'Terminado'])
-            if st.form_submit_button("Crear"):
+                nt_desc = st.text_area("Descripción")
+                nt_dl = st.date_input("Fecha Límite")
+                nt_st = st.selectbox("Estado", ['Backlog', 'Por Hacer', 'En Proceso', 'Terminado'])
+            
+            nb1, nb2 = st.columns([2, 8])
+            if nb1.form_submit_button("Crear"):
                 if nt_t:
-                    supabase.table("clivi_tareas_marketing").insert({"id": str(uuid.uuid4()), "titulo": nt_t, "area": nt_a, "estado": nt_st, "prioridad": nt_p, "asignado_a": nt_as, "fecha_limite": str(nt_dl), "eliminada": False}).execute()
+                    supabase.table("clivi_tareas_marketing").insert({"id": str(uuid.uuid4()), "titulo": nt_t, "area": nt_a, "estado": nt_st, "prioridad": nt_p, "asignado_a": nt_as, "fecha_limite": str(nt_dl), "descripcion": nt_desc, "eliminada": False}).execute()
                     st.session_state.show_add_form = False; st.cache_data.clear(); st.rerun()
-            if st.form_submit_button("Cancelar"): st.session_state.show_add_form = False; st.rerun()
+            if nb2.form_submit_button("Cancelar"): st.session_state.show_add_form = False; st.rerun()
 
 # --- KANBAN ---
 if not df.empty:
