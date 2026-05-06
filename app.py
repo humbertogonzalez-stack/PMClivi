@@ -31,7 +31,7 @@ st.markdown("""
 # --- CREDENCIALES (Cámbialas por tus llaves reales) ---
 SUPABASE_URL = "https://hsfgtjagpfmzqbwuhtqg.supabase.co"
 SUPABASE_KEY = "sb_publishable_z5UM_bMEymxiupzyTqi_eA_V4c0SZZC"
-RESEND_API_KEY = "re_TU_API_KEY_AQUÍ" # <--- PEGA AQUÍ TU API KEY DE RESEND
+RESEND_API_KEY = "re_UJ2rzXKi_GnJC1GbF2WmewBD4BcVCvNvb" # <--- PEGA AQUÍ TU API KEY DE RESEND
 
 @st.cache_resource
 def init_clients():
