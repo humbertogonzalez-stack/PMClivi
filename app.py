@@ -200,7 +200,6 @@ with tab_kanban:
                 ep = st.selectbox("Prioridad", ['Baja', 'Media', 'Alta', 'Urgente'], index=['Baja', 'Media', 'Alta', 'Urgente'].index(task.get('prioridad', 'Media')))
                 eas = st.text_input("Asignado", value=task.get('asignado_a', ''))
             with e2:
-                # Mostrar imagen actual si existe
                 if 'imagen_url' in task and pd.notna(task['imagen_url']) and task['imagen_url']:
                     st.image(task['imagen_url'], use_container_width=True, caption="Evidencia actual")
                 
@@ -239,24 +238,8 @@ with tab_kanban:
                 tareas = df[df['estado'] == col_name]
                 for _, t in tareas.iterrows():
                     pc = p_cols.get(t.get('prioridad', 'Media'), '#4A5568')
-                    img_tag = ""
-                    if 'imagen_url' in t and pd.notna(t['imagen_url']) and t['imagen_url']:
-                        img_tag = f"<img src='{t['imagen_url']}' class='img-preview'>"
-                    
-                    st.markdown(f"""
-                    <div class="task-card {a_css.get(t.get('area', ''), '')}">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span class="area-tag">{t.get('area', '')}</span>
-                            <span class="priority-badge" style="color: {pc}; border: 1px solid {pc};">{t.get("prioridad", "Media")}</span>
-                        </div>
-                        {img_tag}
-                        <div class="task-title" style="margin-top: 10px;">{t['titulo']}</div>
-                        <div class="task-meta">
-                            <span>📅 {t.get('fecha_limite', '--')}</span>
-                            <b style="color: #2ecc71;">👤 {t.get('asignado_a', '--')}</b>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Asegúrate de usar llaves {} para referencias dentro de la cadena HTML
+                    st.markdown(f'<div class="task-card {a_css.get(t.get("area", ""), "")}"><div style="display: flex; justify-content: space-between;"><span class="area-tag">{t.get("area", "")}</span><span class="priority-badge" style="color: {pc}; border: 1px solid {pc};">{t.get("prioridad", "Media")}</span></div><div class="task-title" style="margin-top: 10px;">{t["titulo"]}</div><div class="task-meta"><span>📅 {t.get("fecha_limite", "--")}</span><b style="color: #2ecc71;">👤 {t.get("asignado_a", "--")}</b></div></div>', unsafe_allow_html=True)
                     
                     b1, b2, b3 = st.columns([1,1,2])
                     if i > 0 and b1.button("⬅️", key=f"l_{t['id']}"):
@@ -301,7 +284,6 @@ with tab_cuadernos:
                 st.info("No hay cuadernos creados todavía.")
             else:
                 for _, notebook in df_c.iterrows():
-                    # Formatear la fecha para que se lea mejor
                     fecha_str = str(notebook['fecha_creacion']).split('T')[0]
                     with st.expander(f"📖 {notebook['titulo']} | Autor: {notebook.get('autores', 'ND')}"):
                         st.markdown(f"<span style='color: #8b949e; font-size: 12px;'>Fecha: {fecha_str}</span>", unsafe_allow_html=True)
