@@ -279,20 +279,9 @@ with tab_kanban:
                     if 'imagen_url' in t and pd.notna(t['imagen_url']) and t['imagen_url']:
                         img_tag = f"<img src='{t['imagen_url']}' class='img-preview'>"
                     
-                    st.markdown(f"""
-                    <div class="task-card {a_css.get(t.get('area', ''), '')}">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span class="area-tag">{t.get('area', '')}</span>
-                            <span class="priority-badge" style="color: {pc}; border: 1px solid {pc};">{t.get("prioridad", "Media")}</span>
-                        </div>
-                        {img_tag}
-                        <div class="task-title" style="margin-top: 10px;">{t['titulo']}</div>
-                        <div class="task-meta">
-                            <span>📅 {t.get("fecha_limite", "--")}</span>
-                            <b style="color: #2ecc71;">👤 {t.get("asignado_a", "--")}</b>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # HTML en UNA SOLA LÍNEA para evitar que Streamlit lo convierta a bloque de código Markdown
+                    html_card = f'<div class="task-card {a_css.get(t.get("area", ""), "")}"><div style="display: flex; justify-content: space-between;"><span class="area-tag">{t.get("area", "")}</span><span class="priority-badge" style="color: {pc}; border: 1px solid {pc};">{t.get("prioridad", "Media")}</span></div>{img_tag}<div class="task-title" style="margin-top: 10px;">{t["titulo"]}</div><div class="task-meta"><span>📅 {t.get("fecha_limite", "--")}</span><b style="color: #2ecc71;">👤 {t.get("asignado_a", "--")}</b></div></div>'
+                    st.markdown(html_card, unsafe_allow_html=True)
                     
                     b1, b2, b3 = st.columns([1,1,2])
                     if i > 0 and b1.button("⬅️", key=f"l_{t['id']}"):
@@ -368,14 +357,10 @@ with tab_muro:
         res_p = supabase.table("clivi_postits").select("*").order("fecha_creacion", desc=True).execute()
         st.markdown('<div class="postit-container">', unsafe_allow_html=True)
         for p in res_p.data:
-            # Renderizamos el post-it
-            st.markdown(f"""
-                <div class="postit" style="background-color: {p['color']};">
-                    <div>{p['contenido']}</div>
-                    <div class="postit-meta">POR: {p['autor'] or 'Anónimo'}</div>
-                </div>
-            """, unsafe_allow_html=True)
-            # Botón de eliminar (queda justo debajo del post-it en el layout de Streamlit)
+            # HTML en UNA SOLA LÍNEA también aquí para evitar errores
+            html_postit = f'<div class="postit" style="background-color: {p["color"]};"><div>{p["contenido"]}</div><div class="postit-meta">POR: {p["autor"] or "Anónimo"}</div></div>'
+            st.markdown(html_postit, unsafe_allow_html=True)
+            
             if st.button("Quitar 🗑️", key=f"del_p_{p['id']}"):
                 supabase.table("clivi_postits").delete().eq("id", p['id']).execute()
                 st.rerun()
